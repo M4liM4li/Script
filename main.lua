@@ -80,7 +80,7 @@ function Collection:CheckCrowdAndHop()
     
     Debug_Log("Players Nearby:", NearbyCount)
 
-    if NearbyCount > getgenv().Config.MaxPlayers then
+    if NearbyCount >= getgenv().Config.MaxPlayers then
         warn("!!! Too Crowded ("..NearbyCount.." Players) -> HOPPING SERVER !!!")
         Collection:HopLowServer()
     end
