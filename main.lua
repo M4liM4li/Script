@@ -1,24 +1,23 @@
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceId = game.PlaceId
 
-local Collection = {}; Collection.__index = Collection
-
+local Collection = {}
 local LastPosition = Vector3.new(0, 0, 0)
 local AFKTimer = 0
+local IsHopping = false
 
 local function Debug_Log(...)
     if getgenv().Config.Debug then
-        print("[System]:", ...)
+        print("[Auto-System]:", ...)
     end
 end
 
 function Collection:GetSelfDistance(Object)
     local _Magnitude = 9999
-    local success, err = pcall(function()
+    local success, _ = pcall(function()
         if not LocalPlayer.Character then return end
         
         local Position = (typeof(Object) == "CFrame") and Object.Position or Object
@@ -28,12 +27,13 @@ function Collection:GetSelfDistance(Object)
             _Magnitude = (RootPart.Position - Position).Magnitude
         end
     end)
-    
-    if not success then Debug_Log("Error getting distance:", err) end
     return _Magnitude
 end
 
 function Collection:HopLowServer()
+    if IsHopping then return end
+    IsHopping = true
+    
     Debug_Log("Finding low population server...")
     local Api = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
     
@@ -47,7 +47,9 @@ function Collection:HopLowServer()
                 if type(server) == "table" and server.id ~= game.JobId and server.playing > 0 and server.playing < server.maxPlayers then
                     Debug_Log("Found Server! Players: " .. server.playing .. " | Hopping...")
                     TeleportService:TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
-                    task.wait(2)
+                    task.delay(10, function() 
+                        IsHopping = false 
+                    end)
                     return true
                 end
             end
@@ -57,13 +59,13 @@ function Collection:HopLowServer()
     
     if not TryHop() then
         Debug_Log("Could not find a better server, retrying shortly...")
+        IsHopping = false
     end
 end
 
 function Collection:CheckCrowdAndHop()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return
-    end
+    if IsHopping then return end
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
 
     local NearbyCount = 0
     
@@ -85,7 +87,7 @@ function Collection:CheckCrowdAndHop()
 end
 
 function Collection:CheckStuckStatus()
-    if not getgenv().Config.AFK_Enabled then return end
+    if IsHopping or not getgenv().Config.AFK_Enabled then return end
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
 
     local CurrentPos = LocalPlayer.Character.HumanoidRootPart.Position
